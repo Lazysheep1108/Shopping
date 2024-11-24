@@ -6,9 +6,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 
-@SpringBootApplication
+
 @EnableDiscoveryClient
 @MapperScan(basePackages = "cn.wolfcode.mapper")
+@SpringBootApplication
 public class UaaApplication {
     public static void main(String[] args) {
         SpringApplication.run(UaaApplication.class,args);

@@ -29,6 +29,7 @@ public class RequireLoginInterceptor implements HandlerInterceptor {
         if (handler instanceof HandlerMethod) {
             HandlerMethod handlerMethod = (HandlerMethod) handler;
             String feignRequest = request.getHeader(CommonConstants.FEIGN_REQUEST_KEY);
+            //request is not null && request is not feign && method not have the annoation
             if (!StringUtils.isEmpty(feignRequest) && CommonConstants.FEIGN_REQUEST_FALSE.equals(feignRequest) && handlerMethod.getMethodAnnotation(RequireLogin.class) != null) {
                 response.setContentType("application/json;charset=utf-8");
                 String token = request.getHeader(CommonConstants.TOKEN_NAME);

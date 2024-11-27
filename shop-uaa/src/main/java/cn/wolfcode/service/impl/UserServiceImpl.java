@@ -16,6 +16,8 @@ import com.alibaba.fastjson.JSON;
 import org.apache.commons.lang.StringUtils;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,7 @@ import java.util.UUID;
 /**
  * Created by wolfcode
  */
+@CacheConfig(cacheNames = "user_info")
 @Service
 public class UserServiceImpl implements IUserService {
     @Autowired
@@ -56,6 +59,7 @@ public class UserServiceImpl implements IUserService {
         return userLogin;
     }
 
+
     @Override
     public UserResponse login(Long phone, String password, String ip, String token) {
         //无论登录成功还是登录失败,都需要进行日志记录
@@ -85,6 +89,12 @@ public class UserServiceImpl implements IUserService {
         }
 
         return new UserResponse(token, userInfo);
+    }
+
+    @Cacheable(key= "'users:phone:'+#phone")
+    @Override
+    public UserInfo getByPhone(String phone) {
+        return userMapper.selectUserInfoByPhone(Long.parseLong(phone));
     }
 
     private String createToken(UserInfo userInfo) {

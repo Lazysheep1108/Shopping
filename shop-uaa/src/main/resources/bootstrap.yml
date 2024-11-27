@@ -13,4 +13,9 @@ spring:
         namespace: shop-flashsale
   profiles:
     active: dev # 环境标识
-
+#logging:
+#  level:
+#    cn.wolfcode.mapper:debug
+logging:
+  level:
+    cn.wolfcode.mapper: debug

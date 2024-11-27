@@ -5,6 +5,7 @@ import cn.wolfcode.common.domain.UserInfo;
 import cn.wolfcode.common.exception.BusinessException;
 import cn.wolfcode.common.web.Result;
 import cn.wolfcode.common.web.anno.RequireLogin;
+import cn.wolfcode.common.web.resolver.RequestUser;
 import cn.wolfcode.domain.OrderInfo;
 import cn.wolfcode.domain.SeckillProductVo;
 import cn.wolfcode.redis.CommonRedisKey;
@@ -36,9 +37,9 @@ public class OrderInfoController {
 
     @RequireLogin
     @RequestMapping("/doSeckill")
-    public Result<String> doSeckill(Integer time, Long seckillId, @RequestHeader(CommonConstants.TOKEN_NAME) String token) {
-        // 1. 基于 token 获取到用户信息(必须登录)
-        UserInfo userInfo = this.getUserByToken(token);
+    public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo) {
+//        // 1. 基于 token 获取到用户信息(必须登录)
+//        UserInfo userInfo = this.getUserByToken(token);
         // 2. 基于场次+秒杀id获取到秒杀商品对象
         SeckillProductVo vo = seckillProductService.selectByIdAndTime(seckillId, time);
         if (vo == null) {

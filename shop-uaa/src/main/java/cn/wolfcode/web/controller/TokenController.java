@@ -106,7 +106,7 @@ public class TokenController {
     }
 
     private void createToken(List<UserLogin> userLoginList) throws Exception {
-        File file = new File("C:/tokens.txt");
+        File file = new File("C:/SoftWare/tokens.txt");
         if (file.exists()) {
             boolean ret = file.delete();
             System.out.println("源文件是否存在：" + ret);
@@ -132,6 +132,7 @@ public class TokenController {
         String password = "hsp";
         String driver = "com.mysql.jdbc.Driver";
         Class.forName(driver);
+        //close the resource
         return DriverManager.getConnection(url, username, password);
     }
 

@@ -35,6 +35,17 @@ public class OrderInfoController {
     @Autowired
     private IOrderInfoService orderInfoService;
 
+
+    /**
+     * 优化前:
+     * QPS:90/s
+     * 存在线程安全问题（超卖问题）
+     *
+     * @param time
+     * @param seckillId
+     * @param userInfo
+     * @return
+     */
     @RequireLogin
     @RequestMapping("/doSeckill")
     public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo) {

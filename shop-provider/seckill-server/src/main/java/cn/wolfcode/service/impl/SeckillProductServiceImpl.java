@@ -11,6 +11,7 @@ import cn.wolfcode.mapper.SeckillProductMapper;
 import cn.wolfcode.redis.SeckillRedisKey;
 import cn.wolfcode.service.ISeckillProductService;
 import com.alibaba.fastjson.JSON;
+import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -118,6 +119,14 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
     @CacheEvict(key = "'selectByIdAndTime:' + ':' + #id")
     @Override
     public void decrStockCount(Long id) {
-        seckillProductMapper.decrStock(id);
+        synchronized(this){
+            Long stockCount = seckillProductMapper.selectStockCountById(id);
+            if(stockCount>0){
+                seckillProductMapper.decrStock(id);
+            }else {
+                log.warn("库存数量不够");
+            }
+        }
+
     }
 }

@@ -11,7 +11,6 @@ import cn.wolfcode.mapper.SeckillProductMapper;
 import cn.wolfcode.redis.SeckillRedisKey;
 import cn.wolfcode.service.ISeckillProductService;
 import com.alibaba.fastjson.JSON;
-import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -118,14 +117,43 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
 
     @CacheEvict(key = "'selectByIdAndTime:' + ':' + #id")
     @Override
-    public void decrStockCount(Long id) {
-        synchronized(this){
+    public void decrStockCount(Long id, Integer time) {
+//        synchronized(this){
+//            Long stockCount = seckillProductMapper.selectStockCountById(id);
+//            if(stockCount>0){
+//                seckillProductMapper.decrStock(id);
+//            }else {
+//                log.warn("库存数量不够");
+//            }
+//        }
+
+        String key = "seckill:product:stockcount:" + time + ":" + id;
+        try {
+            //if the count==5,throws exception
+            int count =0;
+            Boolean ret = true;
+            do {
+                //lock which object? -->  lock object that product under seckill_times
+                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
+                if (ret) {
+                    break;
+                }
+                if(count++==5){
+//                    log.info("系统繁忙,稍后重试!");
+                    throw new Exception("系统繁忙,稍后重试!");
+                }
+                Thread.sleep(20);
+            } while (true);
             Long stockCount = seckillProductMapper.selectStockCountById(id);
             if(stockCount>0){
                 seckillProductMapper.decrStock(id);
             }else {
                 log.warn("库存数量不够");
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            redisTemplate.delete(key);
         }
 
     }

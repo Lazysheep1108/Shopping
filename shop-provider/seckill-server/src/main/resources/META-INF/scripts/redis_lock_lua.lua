@@ -8,6 +8,7 @@ local expireAt =tonumber(ARGV[2])
 local keyExist = redis.call("SETNX",KEYS[1],stringVal);
 if(keyExist>= 1)then
     --设置过期时间
-    redis.call("EXPIREAT",KEYS[1],expireAt)
+    redis.call("EXPIRE",KEYS[1],expireAt)
+    return true;
 end
-return tonumber(keyExist)
+return false

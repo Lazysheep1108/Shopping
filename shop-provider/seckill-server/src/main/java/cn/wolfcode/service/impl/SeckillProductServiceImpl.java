@@ -38,7 +38,7 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
     private ProductFeignApi productFeignApi;
 
     @Autowired
-    private RedisScript<Integer> redisScript;
+    private RedisScript<Boolean> redisScript;
 //    @Autowired
 //    private RocketMQTemplate rocketMQTemplate;
 
@@ -136,24 +136,21 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
         try {
             //if the count==5,throws exception
             int count = 0;
-            Integer ret = 0;
+            Boolean ret = false;
             do {
                 //lock which object? -->  lock object that product under seckill_times
 //                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
                 //setnx +lua
-                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), 1, 10);
-                if (ret >= 1) {
+                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), "1", "10");
+                if (ret != null && ret) {
                     break;
                 }
                 AssertUtils.isTrue((count++) < 5, "系统繁忙,稍后重试!");
                 Thread.sleep(20);
             } while (true);
             Long stockCount = seckillProductMapper.selectStockCountById(id);
-            if (stockCount > 0) {
-                seckillProductMapper.decrStock(id);
-            } else {
-                log.warn("库存数量不够");
-            }
+            AssertUtils.isTrue(stockCount > 0, "库存数量不够");
+            seckillProductMapper.decrStock(id);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

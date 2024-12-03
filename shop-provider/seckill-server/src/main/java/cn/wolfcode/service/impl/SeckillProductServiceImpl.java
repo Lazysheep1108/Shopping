@@ -19,6 +19,7 @@ import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -35,6 +36,9 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
     private StringRedisTemplate redisTemplate;
     @Autowired
     private ProductFeignApi productFeignApi;
+
+    @Autowired
+    private RedisScript<Integer> redisScript;
 //    @Autowired
 //    private RocketMQTemplate rocketMQTemplate;
 
@@ -131,21 +135,23 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
         String key = "seckill:product:stockcount:" + time + ":" + id;
         try {
             //if the count==5,throws exception
-            int count =0;
-            Boolean ret = true;
+            int count = 0;
+            Integer ret = 0;
             do {
                 //lock which object? -->  lock object that product under seckill_times
-                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
-                if (ret) {
+//                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
+                //setnx +lua
+                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), 1, 10);
+                if (ret >= 1) {
                     break;
                 }
-                AssertUtils.isTrue((count++)<5,"系统繁忙,稍后重试!");
+                AssertUtils.isTrue((count++) < 5, "系统繁忙,稍后重试!");
                 Thread.sleep(20);
             } while (true);
             Long stockCount = seckillProductMapper.selectStockCountById(id);
-            if(stockCount>0){
+            if (stockCount > 0) {
                 seckillProductMapper.decrStock(id);
-            }else {
+            } else {
                 log.warn("库存数量不够");
             }
         } catch (Exception e) {

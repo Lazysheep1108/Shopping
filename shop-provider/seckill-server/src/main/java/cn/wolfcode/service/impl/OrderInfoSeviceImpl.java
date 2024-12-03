@@ -39,7 +39,7 @@ public class OrderInfoSeviceImpl implements IOrderInfoService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public String doSeckill(UserInfo userInfo, SeckillProductVo vo) throws Exception {
+    public String doSeckill(UserInfo userInfo, SeckillProductVo vo){
         // 1. 扣除秒杀商品库存
         seckillProductService.decrStockCount(vo.getId(),vo.getTime());
         // 2. 创建秒杀订单并保存

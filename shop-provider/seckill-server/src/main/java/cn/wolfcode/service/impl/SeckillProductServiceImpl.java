@@ -10,6 +10,7 @@ import cn.wolfcode.feign.ProductFeignApi;
 import cn.wolfcode.mapper.SeckillProductMapper;
 import cn.wolfcode.redis.SeckillRedisKey;
 import cn.wolfcode.service.ISeckillProductService;
+import cn.wolfcode.util.AssertUtils;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -138,10 +139,7 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
                 if (ret) {
                     break;
                 }
-                if(count++==5){
-//                    log.info("系统繁忙,稍后重试!");
-                    throw new Exception("系统繁忙,稍后重试!");
-                }
+                AssertUtils.isTrue((count++)<5,"系统繁忙,稍后重试!");
                 Thread.sleep(20);
             } while (true);
             Long stockCount = seckillProductMapper.selectStockCountById(id);

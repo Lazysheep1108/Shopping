@@ -11,6 +11,7 @@ import cn.wolfcode.mapper.SeckillProductMapper;
 import cn.wolfcode.redis.SeckillRedisKey;
 import cn.wolfcode.service.ISeckillProductService;
 import cn.wolfcode.util.AssertUtils;
+import cn.wolfcode.util.IdGenerateUtil;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -123,25 +124,19 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
     @CacheEvict(key = "'selectByIdAndTime:' + ':' + #id")
     @Override
     public void decrStockCount(Long id, Integer time) {
-//        synchronized(this){
-//            Long stockCount = seckillProductMapper.selectStockCountById(id);
-//            if(stockCount>0){
-//                seckillProductMapper.decrStock(id);
-//            }else {
-//                log.warn("库存数量不够");
-//            }
-//        }
-
         String key = "seckill:product:stockcount:" + time + ":" + id;
+        String threadId ="";
         try {
             //if the count==5,throws exception
             int count = 0;
             Boolean ret = false;
             do {
+                //generate the only ThreadId
+                threadId = IdGenerateUtil.get().nextId()+"";
                 //lock which object? -->  lock object that product under seckill_times
 //                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
                 //setnx +lua
-                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), "1", "10");
+                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, "10");
                 if (ret != null && ret) {
                     break;
                 }
@@ -154,7 +149,12 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            redisTemplate.delete(key);
+            //Get value ,Determine if the current value is the same as threadId.
+            //If same,then release a lock
+            String value = redisTemplate.opsForValue().get(key);
+            if(threadId.equals(value)){
+                redisTemplate.delete(key);
+            }
         }
 
     }

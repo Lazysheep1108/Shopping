@@ -25,6 +25,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.TimerTask;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,6 +44,8 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
 
     @Autowired
     private RedisScript<Boolean> redisScript;
+    @Autowired
+    private ScheduledExecutorService scheduledExecutorService;
 //    @Autowired
 //    private RocketMQTemplate rocketMQTemplate;
 
@@ -126,23 +132,46 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
     public void decrStockCount(Long id, Integer time) {
         String key = "seckill:product:stockcount:" + time + ":" + id;
         String threadId ="";
+        ScheduledFuture<?> future = null;
         try {
             //if the count==5,throws exception
             int count = 0;
             Boolean ret = false;
+            int timeout = 10;
             do {
                 //generate the only ThreadId
                 threadId = IdGenerateUtil.get().nextId()+"";
                 //lock which object? -->  lock object that product under seckill_times
 //                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
                 //setnx +lua
-                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, "10");
+                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, timeout);
                 if (ret != null && ret) {
                     break;
                 }
                 AssertUtils.isTrue((count++) < 5, "系统繁忙,稍后重试!");
                 Thread.sleep(20);
             } while (true);
+
+            //lock success,then create WatchDog to Listening for business completion,
+            // and determine if the lock needs to be renewed
+            long delayTime  = (long) (timeout*0.8);
+            String finalThreadId  = threadId;
+            future = scheduledExecutorService.scheduleAtFixedRate(() -> {
+                        //if the key exists redis, renewed
+                        String value = redisTemplate.opsForValue().get(key);
+                        if (finalThreadId.equals(value)) {
+                            //
+                            redisTemplate.expire(key, delayTime + 2, TimeUnit.SECONDS);
+                            return;
+                        }
+                    },
+                    delayTime,
+                    delayTime,
+                    TimeUnit.SECONDS
+
+            );
+
+            //search first dec last
             Long stockCount = seckillProductMapper.selectStockCountById(id);
             AssertUtils.isTrue(stockCount > 0, "库存数量不够");
             seckillProductMapper.decrStock(id);
@@ -154,6 +183,9 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
             String value = redisTemplate.opsForValue().get(key);
             if(threadId.equals(value)){
                 redisTemplate.delete(key);
+            }
+            if (future!=null){
+                future.cancel(true);
             }
         }
 

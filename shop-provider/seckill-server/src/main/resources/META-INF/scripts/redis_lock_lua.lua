@@ -1,7 +1,7 @@
 -- string key
 local stringKey = KEYS[1]
 --string value
-local stringVal =tonumber(ARGV[1])
+local stringVal =ARGV[1]
 --过期时间
 local expireAt =tonumber(ARGV[2])
 --check 值是否已存在，不存在先插入key，并初始化值

@@ -144,7 +144,7 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
                 //lock which object? -->  lock object that product under seckill_times
 //                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
                 //setnx +lua
-                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, timeout);
+                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, timeout+"");
                 if (ret != null && ret) {
                     break;
                 }

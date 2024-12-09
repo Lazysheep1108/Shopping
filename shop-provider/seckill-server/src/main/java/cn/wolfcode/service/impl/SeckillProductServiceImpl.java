@@ -127,11 +127,20 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
         return vo;
     }
 
+    /**
+     * pessimistic lock:
+     * 1.Locking with Redis' setnx
+     * 2.Add expiration time to prevent deadlocks
+     * 3.Combining locking and setting expiration times as atomic operations using Lua scripts
+     * 4.To prevent other threads from deleting locks that are not their own, the thread ID is set to the value of the lock.
+     * @param id
+     * @param time
+     */
     @CacheEvict(key = "'selectByIdAndTime:' + ':' + #id")
     @Override
     public void decrStockCount(Long id, Integer time) {
         String key = "seckill:product:stockcount:" + time + ":" + id;
-        String threadId ="";
+        String threadId = "";
         ScheduledFuture<?> future = null;
         try {
             //if the count==5,throws exception
@@ -140,11 +149,11 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
             int timeout = 10;
             do {
                 //generate the only ThreadId
-                threadId = IdGenerateUtil.get().nextId()+"";
+                threadId = IdGenerateUtil.get().nextId() + "";
                 //lock which object? -->  lock object that product under seckill_times
 //                ret = redisTemplate.opsForValue().setIfAbsent(key, "1");
                 //setnx +lua
-                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, timeout+"");
+                ret = redisTemplate.execute(redisScript, Collections.singletonList(key), threadId, timeout + "");
                 if (ret != null && ret) {
                     break;
                 }
@@ -154,8 +163,8 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
 
             //lock success,then create WatchDog to Listening for business completion,
             // and determine if the lock needs to be renewed
-            long delayTime  = (long) (timeout*0.8);
-            String finalThreadId  = threadId;
+            long delayTime = (long) (timeout * 0.8);
+            String finalThreadId = threadId;
             future = scheduledExecutorService.scheduleAtFixedRate(() -> {
                         //if the key exists redis, renewed
                         String value = redisTemplate.opsForValue().get(key);
@@ -181,13 +190,25 @@ public class SeckillProductServiceImpl implements ISeckillProductService {
             //Get value ,Determine if the current value is the same as threadId.
             //If same,then release a lock
             String value = redisTemplate.opsForValue().get(key);
-            if(threadId.equals(value)){
+            if (threadId.equals(value)) {
                 redisTemplate.delete(key);
             }
-            if (future!=null){
+            if (future != null) {
                 future.cancel(true);
             }
         }
 
+    }
+
+    /**
+     * Optimist Lock:
+     * version: stockNum >0
+     * @param id
+     */
+    @CacheEvict(key = "'selectByIdAndTime:' + ':' + #id")
+    @Override
+    public void decrStockCount(Long id) {
+        int row = seckillProductMapper.decrStock(id);
+        AssertUtils.isTrue(row > 0, "库存不足!");
     }
 }

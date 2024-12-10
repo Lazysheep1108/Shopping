@@ -64,14 +64,23 @@ public class OrderInfoController {
         }
         // 4. 判断用户是否重复下单
         // 基于用户 + 秒杀 id + 场次查询订单, 如果存在订单, 说明用户已经下过单
-        OrderInfo orderInfo = orderInfoService.selectByUserIdAndSeckillId(userInfo.getPhone(), seckillId, time);
-        AssertUtils.isTrue(orderInfo == null,"Repeat orders are not possible");
-        // 5. 判断库存是否充足
-        String hashKey = SeckillRedisKey.SECKILL_ORDER_HASH.join(time + "");
-        Long remain = redisTemplate.opsForHash().increment(hashKey, seckillId + "", -1);
-        AssertUtils.isTrue(remain >= 0, "You are so late ,The merchandise is sold out.");
-        // 6. 执行下单操作(减少库存, 创建订单)
-        String orderNo = orderInfoService.doSeckill(userInfo, vo);
+        String userOrderFlag = SeckillRedisKey.SECKILL_ORDER_HASH.join(seckillId + "");
+        Long orderCount = redisTemplate.opsForHash().increment(userOrderFlag, userInfo.getPhone() + "", 1);
+//        OrderInfo orderInfo = orderInfoService.selectByUserIdAndSeckillId(userInfo.getPhone(), seckillId, time);
+        AssertUtils.isTrue(orderCount <= 1, "Repeat orders are not possible");
+        String orderNo = null;
+        try {
+            // 5. 判断库存是否充足
+            String hashKey = SeckillRedisKey.SECKILL_ORDER_HASH.join(time + "");
+            Long remain = redisTemplate.opsForHash().increment(hashKey, seckillId + "", -1);
+            AssertUtils.isTrue(remain >= 0, "You are so late ,The merchandise is sold out.");
+            // 6. 执行下单操作(减少库存, 创建订单)
+            orderNo = orderInfoService.doSeckill(userInfo, vo);
+        } catch (BusinessException e) {
+            //delete repeated ORDER_FLAG
+            redisTemplate.opsForHash().delete(userOrderFlag,userInfo.getPhone()+"");
+            return Result.error(e.getCodeMsg());
+        }
         return Result.success(orderNo);
     }
 

@@ -9,8 +9,10 @@ import cn.wolfcode.common.web.resolver.RequestUser;
 import cn.wolfcode.domain.OrderInfo;
 import cn.wolfcode.domain.SeckillProductVo;
 import cn.wolfcode.redis.CommonRedisKey;
+import cn.wolfcode.redis.SeckillRedisKey;
 import cn.wolfcode.service.IOrderInfoService;
 import cn.wolfcode.service.ISeckillProductService;
+import cn.wolfcode.util.AssertUtils;
 import cn.wolfcode.util.DateUtil;
 import cn.wolfcode.web.msg.SeckillCodeMsg;
 import com.alibaba.fastjson.JSON;
@@ -63,13 +65,11 @@ public class OrderInfoController {
         // 4. 判断用户是否重复下单
         // 基于用户 + 秒杀 id + 场次查询订单, 如果存在订单, 说明用户已经下过单
         OrderInfo orderInfo = orderInfoService.selectByUserIdAndSeckillId(userInfo.getPhone(), seckillId, time);
-        if (orderInfo != null) {
-            throw new BusinessException(SeckillCodeMsg.REPEAT_SECKILL);
-        }
+        AssertUtils.isTrue(orderInfo == null,"Repeat orders are not possible");
         // 5. 判断库存是否充足
-        if (vo.getStockCount() <= 0) {
-            throw new BusinessException(SeckillCodeMsg.SECKILL_STOCK_OVER);
-        }
+        String hashKey = SeckillRedisKey.SECKILL_ORDER_HASH.join(time + "");
+        Long remain = redisTemplate.opsForHash().increment(hashKey, seckillId + "", -1);
+        AssertUtils.isTrue(remain >= 0, "You are so late ,The merchandise is sold out.");
         // 6. 执行下单操作(减少库存, 创建订单)
         String orderNo = orderInfoService.doSeckill(userInfo, vo);
         return Result.success(orderNo);

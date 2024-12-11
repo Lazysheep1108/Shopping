@@ -23,11 +23,20 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 @RestController
 @RequestMapping("/order")
 @Slf4j
 public class OrderInfoController {
+    /**
+     mark those products which has sold out
+     *
+     */
+    private static  final Map<Long,Boolean> STOCK_OVER_FLOW_MAP = new ConcurrentHashMap<>();
     @Autowired
     private ISeckillProductService seckillProductService;
     @Autowired
@@ -36,6 +45,7 @@ public class OrderInfoController {
 //    private RocketMQTemplate rocketMQTemplate;
     @Autowired
     private IOrderInfoService orderInfoService;
+
 
 
     /**
@@ -51,7 +61,12 @@ public class OrderInfoController {
     @RequireLogin
     @RequestMapping("/doSeckill")
     public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo) throws Exception {
-//        // 1. 基于 token 获取到用户信息(必须登录)
+
+//      //1.判断库存是否已经卖完了,如果已经卖完,直接返回异常信息
+        Boolean flag  = STOCK_OVER_FLOW_MAP.get(seckillId);
+        if(flag!=null&&flag){
+            return Result.error(SeckillCodeMsg.SECKILL_STOCK_OVER);
+        }
 //        UserInfo userInfo = this.getUserByToken(token);
         // 2. 基于场次+秒杀id获取到秒杀商品对象
         SeckillProductVo vo = seckillProductService.selectByIdAndTime(seckillId, time);
@@ -77,6 +92,7 @@ public class OrderInfoController {
             // 6. 执行下单操作(减少库存, 创建订单)
             orderNo = orderInfoService.doSeckill(userInfo, vo);
         } catch (BusinessException e) {
+            STOCK_OVER_FLOW_MAP.put(seckillId,true);
             //delete repeated ORDER_FLAG
             redisTemplate.opsForHash().delete(userOrderFlag,userInfo.getPhone()+"");
             return Result.error(e.getCodeMsg());

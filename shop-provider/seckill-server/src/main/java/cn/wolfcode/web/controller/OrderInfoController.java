@@ -33,10 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class OrderInfoController {
     /**
-     mark those products which has sold out
-     *
+     * mark those products which has sold out
      */
-    private static  final Map<Long,Boolean> STOCK_OVER_FLOW_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Boolean> STOCK_OVER_FLOW_MAP = new ConcurrentHashMap<>();
     @Autowired
     private ISeckillProductService seckillProductService;
     @Autowired
@@ -45,7 +44,6 @@ public class OrderInfoController {
 //    private RocketMQTemplate rocketMQTemplate;
     @Autowired
     private IOrderInfoService orderInfoService;
-
 
 
     /**
@@ -63,25 +61,29 @@ public class OrderInfoController {
     public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo) throws Exception {
 
 //      //1.判断库存是否已经卖完了,如果已经卖完,直接返回异常信息
-        Boolean flag  = STOCK_OVER_FLOW_MAP.get(seckillId);
-        if(flag!=null&&flag){
+        Boolean flag = STOCK_OVER_FLOW_MAP.get(seckillId);
+        if (flag != null && flag) {
             return Result.error(SeckillCodeMsg.SECKILL_STOCK_OVER);
         }
 //        UserInfo userInfo = this.getUserByToken(token);
         // 2. 基于场次+秒杀id获取到秒杀商品对象
         SeckillProductVo vo = seckillProductService.selectByIdAndTime(seckillId, time);
         if (vo == null) {
-            throw new BusinessException(SeckillCodeMsg.REMOTE_DATA_ERROR);
+            return Result.error(SeckillCodeMsg.REMOTE_DATA_ERROR);
         }
         // 3. 判断时间是否大于开始时间 && 小于 开始时间+2小时
         if (!DateUtil.isLegalTime(vo.getStartDate(), time)) {
-            throw new BusinessException(SeckillCodeMsg.OUT_OF_SECKILL_TIME_ERROR);
+            return Result.error(SeckillCodeMsg.OUT_OF_SECKILL_TIME_ERROR);
+            //throw new BusinessException(SeckillCodeMsg.OUT_OF_SECKILL_TIME_ERROR);
         }
         // 4. 判断用户是否重复下单
         // 基于用户 + 秒杀 id + 场次查询订单, 如果存在订单, 说明用户已经下过单
         String userOrderFlag = SeckillRedisKey.SECKILL_ORDER_HASH.join(seckillId + "");
         Long orderCount = redisTemplate.opsForHash().increment(userOrderFlag, userInfo.getPhone() + "", 1);
 //        OrderInfo orderInfo = orderInfoService.selectByUserIdAndSeckillId(userInfo.getPhone(), seckillId, time);
+        if (orderCount > 1) {
+            return Result.error(SeckillCodeMsg.REPEAT_SECKILL);
+        }
         AssertUtils.isTrue(orderCount <= 1, "Repeat orders are not possible");
         String orderNo = null;
         try {
@@ -92,9 +94,9 @@ public class OrderInfoController {
             // 6. 执行下单操作(减少库存, 创建订单)
             orderNo = orderInfoService.doSeckill(userInfo, vo);
         } catch (BusinessException e) {
-            STOCK_OVER_FLOW_MAP.put(seckillId,true);
+            STOCK_OVER_FLOW_MAP.put(seckillId, true);
             //delete repeated ORDER_FLAG
-            redisTemplate.opsForHash().delete(userOrderFlag,userInfo.getPhone()+"");
+            redisTemplate.opsForHash().delete(userOrderFlag, userInfo.getPhone() + "");
             return Result.error(e.getCodeMsg());
         }
         return Result.success(orderNo);

@@ -8,6 +8,9 @@ import cn.wolfcode.common.web.anno.RequireLogin;
 import cn.wolfcode.common.web.resolver.RequestUser;
 import cn.wolfcode.domain.OrderInfo;
 import cn.wolfcode.domain.SeckillProductVo;
+import cn.wolfcode.mq.DefaultSendCallback;
+import cn.wolfcode.mq.MQConstant;
+import cn.wolfcode.mq.OrderMessage;
 import cn.wolfcode.redis.CommonRedisKey;
 import cn.wolfcode.redis.SeckillRedisKey;
 import cn.wolfcode.service.IOrderInfoService;
@@ -17,6 +20,7 @@ import cn.wolfcode.util.DateUtil;
 import cn.wolfcode.web.msg.SeckillCodeMsg;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -36,14 +40,17 @@ public class OrderInfoController {
      * mark those products which has sold out
      */
     private static final Map<Long, Boolean> STOCK_OVER_FLOW_MAP = new ConcurrentHashMap<>();
-    @Autowired
-    private ISeckillProductService seckillProductService;
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-    //    @Autowired
-//    private RocketMQTemplate rocketMQTemplate;
-    @Autowired
-    private IOrderInfoService orderInfoService;
+    private final ISeckillProductService seckillProductService;
+    private final StringRedisTemplate redisTemplate;
+    private final RocketMQTemplate rocketMQTemplate;
+    private final IOrderInfoService orderInfoService;
+
+    public OrderInfoController(ISeckillProductService seckillProductService, StringRedisTemplate redisTemplate, RocketMQTemplate rocketMQTemplate, IOrderInfoService orderInfoService) {
+        this.seckillProductService = seckillProductService;
+        this.redisTemplate = redisTemplate;
+        this.rocketMQTemplate = rocketMQTemplate;
+        this.orderInfoService = orderInfoService;
+    }
 
 
     /**
@@ -91,15 +98,21 @@ public class OrderInfoController {
             String hashKey = SeckillRedisKey.SECKILL_ORDER_HASH.join(time + "");
             Long remain = redisTemplate.opsForHash().increment(hashKey, seckillId + "", -1);
             AssertUtils.isTrue(remain >= 0, "You are so late ,The merchandise is sold out.");
-            // 6. 执行下单操作(减少库存, 创建订单)
-            orderNo = orderInfoService.doSeckill(userInfo, vo);
+            //6.send message to mq
+            rocketMQTemplate.asyncSend(
+                    MQConstant.ORDER_PENDING_TOPIC,
+                    new OrderMessage(time,seckillId,null,userInfo.getPhone()),
+                    new DefaultSendCallback("create orderInfo"));
+            return Result.success("create the order,please wait a moment!");
         } catch (BusinessException e) {
             STOCK_OVER_FLOW_MAP.put(seckillId, true);
             //delete repeated ORDER_FLAG
             redisTemplate.opsForHash().delete(userOrderFlag, userInfo.getPhone() + "");
             return Result.error(e.getCodeMsg());
+        }catch (Exception e){
+            e.printStackTrace();
         }
-        return Result.success(orderNo);
+        return Result.defaultError();
     }
 
     private UserInfo getUserByToken(String token) {

@@ -65,7 +65,7 @@ public class OrderInfoController {
      */
     @RequireLogin
     @RequestMapping("/doSeckill")
-    public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo) throws Exception {
+    public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo,@RequestHeader("token")String token) throws Exception {
 
 //      //1.判断库存是否已经卖完了,如果已经卖完,直接返回异常信息
         Boolean flag = STOCK_OVER_FLOW_MAP.get(seckillId);
@@ -101,7 +101,7 @@ public class OrderInfoController {
             //6.send message to mq
             rocketMQTemplate.asyncSend(
                     MQConstant.ORDER_PENDING_TOPIC,
-                    new OrderMessage(time,seckillId,null,userInfo.getPhone()),
+                    new OrderMessage(time,seckillId,token,userInfo.getPhone()),
                     new DefaultSendCallback("create orderInfo"));
             return Result.success("create the order,please wait a moment!");
         } catch (BusinessException e) {

@@ -7,6 +7,7 @@ public class MQConstant {
     public static final String ORDER_PENDING_CONSUMER_GROUP = "ORDER_PENDING_CONSUMER_GROUP";
     //订单结果
     public static final String ORDER_RESULT_TOPIC = "ORDER_RESULT_TOPIC";
+    public static final String ORDER_RESULT_CONSUMER_GROUP = "ORDER_RESULT_CONSUMER_GROUP";
     //订单超时取消
     public static final String ORDER_PAY_TIMEOUT_TOPIC = "ORDER_PAY_TIMEOUT_TOPIC";
     //取消本地标识

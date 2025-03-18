@@ -3,6 +3,7 @@ package cn.wolfcode.web.controller;
 import cn.wolfcode.common.constants.CommonConstants;
 import cn.wolfcode.common.domain.UserInfo;
 import cn.wolfcode.common.exception.BusinessException;
+import cn.wolfcode.common.web.CodeMsg;
 import cn.wolfcode.common.web.Result;
 import cn.wolfcode.common.web.anno.RequireLogin;
 import cn.wolfcode.common.web.resolver.RequestUser;
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,6 +54,23 @@ public class OrderInfoController {
         this.orderInfoService = orderInfoService;
     }
 
+    /**
+     * search orderinfo
+     * @param orderNo
+     * @return
+     */
+    @RequireLogin
+    @GetMapping("/find")
+    public Result<OrderInfo> findById(String orderNo, @RequestUser
+            UserInfo userInfo) {
+        OrderInfo orderInfo = orderInfoService.selectByOrderNo(orderNo);
+        Long userId = orderInfo.getUserId();
+        if (!userInfo.getPhone().equals(userId)) {
+            return Result.error(SeckillCodeMsg.REMOTE_DATA_ERROR);
+        }
+        return Result.success(orderInfo);
+    }
+
 
     /**
      * 优化前:
@@ -65,7 +84,7 @@ public class OrderInfoController {
      */
     @RequireLogin
     @RequestMapping("/doSeckill")
-    public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo,@RequestHeader("token")String token) throws Exception {
+    public Result<String> doSeckill(Integer time, Long seckillId, @RequestUser UserInfo userInfo, @RequestHeader("token") String token) throws Exception {
 
 //      //1.判断库存是否已经卖完了,如果已经卖完,直接返回异常信息
         Boolean flag = STOCK_OVER_FLOW_MAP.get(seckillId);
@@ -101,7 +120,7 @@ public class OrderInfoController {
             //6.send message to mq
             rocketMQTemplate.asyncSend(
                     MQConstant.ORDER_PENDING_TOPIC,
-                    new OrderMessage(time,seckillId,token,userInfo.getPhone()),
+                    new OrderMessage(time, seckillId, token, userInfo.getPhone()),
                     new DefaultSendCallback("create orderInfo"));
             return Result.success("create the order,please wait a moment!");
         } catch (BusinessException e) {
@@ -109,7 +128,7 @@ public class OrderInfoController {
             //delete repeated ORDER_FLAG
             redisTemplate.opsForHash().delete(userOrderFlag, userInfo.getPhone() + "");
             return Result.error(e.getCodeMsg());
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return Result.defaultError();

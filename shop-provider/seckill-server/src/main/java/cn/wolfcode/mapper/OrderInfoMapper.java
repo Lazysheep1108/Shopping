@@ -51,5 +51,7 @@ public interface OrderInfoMapper {
      */
     int changeRefundStatus(@Param("orderNo") String outTradeNo, @Param("status") Integer statusRefund);
 
-    OrderInfo selectByUserIdAndSeckillId(@Param("userId") Long userId, @Param("seckillId") Long seckillId, @Param("time") Integer time);
+    OrderInfo selectByUserIdAndSeckillId(@Param("userId") Long userId, @Param("seckillId") Long seckillId);
+
+    OrderInfo selectById(String orderNo);
 }

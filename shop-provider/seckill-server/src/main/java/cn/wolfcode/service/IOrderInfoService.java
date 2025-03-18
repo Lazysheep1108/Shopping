@@ -12,9 +12,11 @@ import java.util.Map;
  */
 public interface IOrderInfoService {
 
-    OrderInfo selectByUserIdAndSeckillId(Long phone, Long seckillId, Integer time);
+    OrderInfo selectByUserIdAndSeckillId(Long phone, Long seckillId);
 
     String doSeckill(Long phone, SeckillProductVo vo) throws Exception;
 
     String doSeckill(Long phone, Long seckillId, Integer time);
+
+    OrderInfo selectByOrderNo(String orderNo);
 }

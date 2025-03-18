@@ -35,7 +35,7 @@ public class OrderResultMessageListener implements RocketMQListener<OrderMQResul
                     return;
                 }
                 count++;
-                log.info("[order result] this is the {}time to querry session object failure,begin to get the next",count);
+                log.info("[order result] this is the {}time to querry session object failure,begin to get the next", count);
                 Thread.sleep(300);
             } while (count <= 5);
 

@@ -33,8 +33,8 @@ public class OrderInfoSeviceImpl implements IOrderInfoService {
     private RefundLogMapper refundLogMapper;
 
     @Override
-    public OrderInfo selectByUserIdAndSeckillId(Long userId, Long seckillId, Integer time) {
-        return orderInfoMapper.selectByUserIdAndSeckillId(userId, seckillId, time);
+    public OrderInfo selectByUserIdAndSeckillId(Long userId, Long seckillId) {
+        return orderInfoMapper.selectByUserIdAndSeckillId(userId, seckillId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -54,6 +54,10 @@ public class OrderInfoSeviceImpl implements IOrderInfoService {
     public String doSeckill(Long phone, Long seckillId, Integer time) {
         SeckillProductVo sp = seckillProductService.selectByIdAndTime(seckillId,time);
         return this.doSeckill(phone,sp);
+    }
+
+    public OrderInfo selectByOrderNo(String orderNo){
+        return orderInfoMapper.selectById(orderNo);
     }
 
 
